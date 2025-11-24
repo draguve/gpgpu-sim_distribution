@@ -1549,6 +1549,7 @@ swl_scheduler::swl_scheduler(shader_core_stats *stats, shader_core_ctx *shader,
   unsigned m_prioritization_readin;
   int ret = sscanf(config_string, "warp_limiting:%d:%d",
                    &m_prioritization_readin, &m_num_warps_to_limit);
+  // shader->get_config()->gpgpu_dynamic_swl_enabled;
   assert(2 == ret);
   m_prioritization = (scheduler_prioritization_type)m_prioritization_readin;
   // Currently only GTO is implemented

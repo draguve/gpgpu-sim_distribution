@@ -521,6 +521,10 @@ void shader_core_config::reg_options(class OptionParser *opp) {
       "Default: gto",
       "gto");
 
+  option_parser_register(opp,"-gpgpu_dyamic_swl", OPT_BOOL,
+      &gpgpu_dynamic_swl_enabled, "Enable dynamic warp limiting"
+      , "0");
+
   option_parser_register(
       opp, "-gpgpu_concurrent_kernel_sm", OPT_BOOL, &gpgpu_concurrent_kernel_sm,
       "Support concurrent kernels on a SM (default = disabled)", "0");
