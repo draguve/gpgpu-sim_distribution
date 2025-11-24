@@ -346,11 +346,11 @@ void function_info::ptx_assemble() {
    printf("GPGPU-Sim PTX: finding reconvergence points for \'%s\'...\n", m_name.c_str() );
    create_basic_blocks();
    connect_basic_blocks();
-   bool modified = false; 
+   bool modified = false;
    do {
       find_dominators();
       find_idominators();
-      modified = connect_break_targets(); 
+      modified = connect_break_targets();
    } while (modified == true);
 
    if ( g_debug_execution>=50 ) {
@@ -1923,8 +1923,7 @@ void ptx_thread_info::ptx_exec_inst(warp_inst_t &inst, unsigned lane_id) {
     if ((m_gpu->gpgpu_ctx->func_sim->g_ptx_sim_num_insn % 100000) == 0) {
       dim3 ctaid = get_ctaid();
       dim3 tid = get_tid();
-      DPRINTF(LIVENESS,
-              "GPGPU-Sim PTX: %u instructions simulated : ctaid=(%u,%u,%u) "
+      DPRINTF("GPGPU-Sim PTX: %u instructions simulated : ctaid=(%u,%u,%u) "
               "tid=(%u,%u,%u)\n",
               m_gpu->gpgpu_ctx->func_sim->g_ptx_sim_num_insn, ctaid.x, ctaid.y,
               ctaid.z, tid.x, tid.y, tid.z);
