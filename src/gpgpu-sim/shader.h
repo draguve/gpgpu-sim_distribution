@@ -553,6 +553,17 @@ class swl_scheduler : public scheduler_unit {
   virtual void done_adding_supervised_warps() {
     m_last_supervised_issued = m_supervised_warps.begin();
   }
+  // --- Dynamic SWL members (per SM) ---
+  int      m_dyn_init_done;     // whether initialized
+  int      m_dyn_enabled;       // flag from config
+  int      m_x_idx;             // current index in {1,2,4,8,16,24,32,48}
+  int      m_x_best_idx;        // best index so far
+  int      m_x_cur;             // current warp limit (x)
+  double   m_best_ipc;          // best IPC seen so far
+  unsigned m_window_len;        // cycles per window (e.g., 2048)
+  unsigned m_window_left;       // cycles remaining in window
+  unsigned long long m_base_insn; // last instruction count snapshot
+  unsigned long long m_base_cyc;  // last cycle count snapshot
 
  protected:
   scheduler_prioritization_type m_prioritization;

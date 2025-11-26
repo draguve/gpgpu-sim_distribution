@@ -1555,19 +1555,114 @@ swl_scheduler::swl_scheduler(shader_core_stats *stats, shader_core_ctx *shader,
   // Currently only GTO is implemented
   assert(m_prioritization == SCHEDULER_PRIORITIZATION_GTO);
   assert(m_num_warps_to_limit <= shader->get_config()->max_warps_per_shader);
+
+  m_dyn_init_done = 0;
+  m_dyn_enabled   = 0;
+  m_x_idx         = 0;
+  m_x_best_idx    = 0;
+  m_x_cur         = 1;
+  m_best_ipc      = 0.0;
+  m_window_len    = 2048;
+  m_window_left   = m_window_len;
+  m_base_insn     = 0;
+  m_base_cyc      = 0;
 }
 
-void swl_scheduler::order_warps() {
+// void swl_scheduler::order_warps() {
+//   printf("[Draguve] SWL Order wraps called %u %llu %u %u %d\n",
+//       m_supervised_warps.size(),
+//       m_shader->get_gpu()->gpu_sim_insn,
+//       m_stats->m_num_sim_insn,
+//       m_stats->m_num_sim_winsn,
+//       m_id
+//   );
+//   if (SCHEDULER_PRIORITIZATION_GTO == m_prioritization) {
+//     order_by_priority(m_next_cycle_prioritized_warps, m_supervised_warps,
+//                       m_last_supervised_issued,
+//                       MIN(m_num_warps_to_limit, m_supervised_warps.size()),
+//                       ORDERING_GREEDY_THEN_PRIORITY_FUNC,
+//                       scheduler_unit::sort_warps_by_oldest_dynamic_id);
+//   } else {
+//     fprintf(stderr, "swl_scheduler m_prioritization = %d\n", m_prioritization);
+//     abort();
+//   }
+// }
 
-  printf("[Draguve] SWL Order wraps called %u %llu %u %u %d\n",
-      m_supervised_warps.size(),
-      m_shader->get_gpu()->gpu_sim_insn,
-      m_stats->m_num_sim_insn,
-      m_stats->m_num_sim_winsn,
-      m_id
-  );
+#define PRINT_DSWL
+void swl_scheduler::order_warps() {
+  static const int kXcands[8] = {1, 2, 4, 8, 16, 24, 32, 48};
+  const double improve_eps = 1.01;
+
+  if (!m_dyn_init_done) {
+    m_dyn_enabled = (m_shader->get_config()->gpgpu_dynamic_swl_enabled != 0);
+
+    m_x_idx = 0;
+    m_x_best_idx = 0;
+    m_x_cur = kXcands[m_x_idx];
+    m_num_warps_to_limit = m_x_cur;
+
+    m_base_insn = m_shader->get_gpu()->gpu_sim_insn;
+    m_base_cyc  = m_shader->get_gpu()->gpu_sim_cycle;
+    m_window_len  = 2048;
+    m_window_left = m_window_len;
+    m_best_ipc = 0.0;
+    m_dyn_init_done = 1;
+
+    #ifdef PRINT_DSWL
+    if (m_dyn_enabled) {
+      printf("[DYN_SWL][SM %d] Dynamic SWL enabled. Starting with x=%d\n",
+             m_id, m_x_cur);
+    }
+    #endif
+  }
+
+  if (m_dyn_enabled) {
+    if (--m_window_left == 0) {
+      unsigned long long inow = m_shader->get_gpu()->gpu_sim_insn;
+      unsigned long long cnow = m_shader->get_gpu()->gpu_sim_cycle;
+      unsigned long long dI = (inow >= m_base_insn) ? (inow - m_base_insn) : 0ULL;
+      unsigned long long dC = (cnow >= m_base_cyc) ? (cnow - m_base_cyc) : 1ULL;
+      double ipc = (double)dI / (double)dC;
+
+      #ifdef PRINT_DSWL
+      printf("[DYN_SWL][SM %d] Tested x=%d -> IPC=%.4f (best=%.4f @ x=%d)\n",
+             m_id, kXcands[m_x_idx], ipc, m_best_ipc, kXcands[m_x_best_idx]);
+      #endif
+
+
+      if (ipc >= m_best_ipc * improve_eps && m_x_idx < 7) {
+        m_best_ipc = ipc;
+        m_x_best_idx = m_x_idx;
+        m_x_idx++;
+
+        #ifdef PRINT_DSWL
+        printf("[DYN_SWL][SM %d] New best found! IPC=%.4f, x=%d\n",
+               m_id, m_best_ipc, kXcands[m_x_best_idx]);
+        #endif
+
+      } else {
+        m_x_idx = m_x_best_idx;
+      }
+
+      unsigned max_warps = m_shader->get_config()->max_warps_per_shader;
+      m_x_cur = kXcands[m_x_idx];
+      m_num_warps_to_limit = MIN(m_x_cur, max_warps);
+
+      #ifdef PRINT_DSWL
+      printf("[DYN_SWL][SM %d] Next test x=%d (limit=%d)\n",
+             m_id, m_x_cur, m_num_warps_to_limit);
+      #endif
+
+      // Reset window
+      m_base_insn = inow;
+      m_base_cyc  = cnow;
+      m_window_left = m_window_len;
+    }
+  }
+
   if (SCHEDULER_PRIORITIZATION_GTO == m_prioritization) {
-    order_by_priority(m_next_cycle_prioritized_warps, m_supervised_warps,
+    order_by_priority(m_next_cycle_prioritized_warps,
+                      m_supervised_warps,
                       m_last_supervised_issued,
                       MIN(m_num_warps_to_limit, m_supervised_warps.size()),
                       ORDERING_GREEDY_THEN_PRIORITY_FUNC,
