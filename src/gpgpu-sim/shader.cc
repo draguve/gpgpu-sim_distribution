@@ -1555,10 +1555,17 @@ swl_scheduler::swl_scheduler(shader_core_stats *stats, shader_core_ctx *shader,
   // Currently only GTO is implemented
   assert(m_prioritization == SCHEDULER_PRIORITIZATION_GTO);
   assert(m_num_warps_to_limit <= shader->get_config()->max_warps_per_shader);
-  // shader->get_gpu()->gpu_sim_insn
 }
 
 void swl_scheduler::order_warps() {
+
+  printf("[Draguve] SWL Order wraps called %u %llu %u %u %d\n",
+      m_supervised_warps.size(),
+      m_shader->get_gpu()->gpu_sim_insn,
+      m_stats->m_num_sim_insn,
+      m_stats->m_num_sim_winsn,
+      m_id
+  );
   if (SCHEDULER_PRIORITIZATION_GTO == m_prioritization) {
     order_by_priority(m_next_cycle_prioritized_warps, m_supervised_warps,
                       m_last_supervised_issued,
