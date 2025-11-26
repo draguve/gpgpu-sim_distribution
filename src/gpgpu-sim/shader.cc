@@ -1601,8 +1601,8 @@ void swl_scheduler::order_warps() {
     m_x_cur = kXcands[m_x_idx];
     m_num_warps_to_limit = m_x_cur;
 
-    m_base_insn = m_shader->get_gpu()->gpu_sim_insn;
-    m_base_cyc  = m_shader->get_gpu()->gpu_sim_cycle;
+    m_base_insn = m_stats->m_num_sim_insn[m_shader->get_sid()];
+    m_base_cyc  = m_stats->shader_cycles[m_shader->get_sid()];
     m_window_len  = 2048;
     m_window_left = m_window_len;
     m_best_ipc = 0.0;
@@ -1611,24 +1611,23 @@ void swl_scheduler::order_warps() {
     #ifdef PRINT_DSWL
     if (m_dyn_enabled) {
       printf("[DYN_SWL][SM %d] Dynamic SWL enabled. Starting with x=%d\n",
-             m_id, m_x_cur);
+             m_shader->get_sid(), m_x_cur);
     }
     #endif
   }
 
   if (m_dyn_enabled) {
     if (--m_window_left == 0) {
-      unsigned long long inow = m_shader->get_gpu()->gpu_sim_insn;
-      unsigned long long cnow = m_shader->get_gpu()->gpu_sim_cycle;
+      unsigned long long inow = m_stats->m_num_sim_insn[m_shader->get_sid()];
+      unsigned long long cnow = m_stats->shader_cycles[m_shader->get_sid()];
       unsigned long long dI = (inow >= m_base_insn) ? (inow - m_base_insn) : 0ULL;
       unsigned long long dC = (cnow >= m_base_cyc) ? (cnow - m_base_cyc) : 1ULL;
       double ipc = (double)dI / (double)dC;
 
       #ifdef PRINT_DSWL
       printf("[DYN_SWL][SM %d] Tested x=%d -> IPC=%.4f (best=%.4f @ x=%d)\n",
-             m_id, kXcands[m_x_idx], ipc, m_best_ipc, kXcands[m_x_best_idx]);
+             m_shader->get_sid(), kXcands[m_x_idx], ipc, m_best_ipc, kXcands[m_x_best_idx]);
       #endif
-
 
       if (ipc >= m_best_ipc * improve_eps && m_x_idx < 7) {
         m_best_ipc = ipc;
@@ -1637,9 +1636,8 @@ void swl_scheduler::order_warps() {
 
         #ifdef PRINT_DSWL
         printf("[DYN_SWL][SM %d] New best found! IPC=%.4f, x=%d\n",
-               m_id, m_best_ipc, kXcands[m_x_best_idx]);
+               m_shader->get_sid(), m_best_ipc, kXcands[m_x_best_idx]);
         #endif
-
       } else {
         m_x_idx = m_x_best_idx;
       }
@@ -1650,10 +1648,9 @@ void swl_scheduler::order_warps() {
 
       #ifdef PRINT_DSWL
       printf("[DYN_SWL][SM %d] Next test x=%d (limit=%d)\n",
-             m_id, m_x_cur, m_num_warps_to_limit);
+             m_shader->get_sid(), m_x_cur, m_num_warps_to_limit);
       #endif
 
-      // Reset window
       m_base_insn = inow;
       m_base_cyc  = cnow;
       m_window_left = m_window_len;
@@ -1672,6 +1669,7 @@ void swl_scheduler::order_warps() {
     abort();
   }
 }
+
 
 void shader_core_ctx::read_operands() {}
 
